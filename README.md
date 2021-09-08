@@ -1,1 +1,0 @@
-# Edge-Based-Video-Surveillance-System
