@@ -11,6 +11,7 @@ import sys
 
 sys.path.append("E:\Capstone\Implementation")
 from database import Database
+from faceClustering import *
 
 i = 0
 
@@ -82,88 +83,101 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
     return (locs, preds)
 
 
-dir_ = r"E:\Capstone\Implementation\algorithms\MobileNet\\"
+if __name__ == "__main__":
+    dir_ = r"E:\Capstone\Implementation\algorithms\MobileNet\\"
 
-# load our serialized face detector model from disk
-prototxtPath = dir_ + r"face_detector\deploy.prototxt"
-weightsPath = dir_ + r"face_detector\res10_300x300_ssd_iter_140000.caffemodel"
-faceNet = cv2.dnn.readNet(prototxtPath, weightsPath)
+    # load our serialized face detector model from disk
+    prototxtPath = dir_ + r"face_detector\deploy.prototxt"
+    weightsPath = dir_ + r"face_detector\res10_300x300_ssd_iter_140000.caffemodel"
+    faceNet = cv2.dnn.readNet(prototxtPath, weightsPath)
 
-# load the face mask detector model from disk
-maskNet = load_model(
-    dir_ + r"mask_detector.model",
-    compile=False,
-)
+    # load the face mask detector model from disk
+    maskNet = load_model(
+        dir_ + r"mask_detector.model",
+        compile=False,
+    )
 
-# initialize the video stream
-print("[INFO] starting video stream...")
-# vs = VideoStream(src=0).start()
-cap = cv2.VideoCapture("E:/Capstone/Implementation/mmsk.mp4")
-output_path = "E:/Capstone/Implementation/output/"
-ob = Database()
+    # initialize the video stream
+    print("[INFO] starting video stream...")
+    # cap = VideoStream(src=0).start()
+    cap = cv2.VideoCapture("E:/Capstone/Implementation/mmsk.mp4")
+    output_path = "E:/Capstone/Implementation/output/"
+    fcOb = faceClustering()
+    dbOb = Database()
 
-# loop over the frames from the video stream
-while True:
-    # grab the frame from the threaded video stream and resize it
-    # to have a maximum width of 400 pixels
-    # frame = vs.read()
-    ret, frame = cap.read()
-    try:
-        frame = imutils.resize(frame, width=400)
-    except:
-        break
+    # loop over the frames from the video stream
+    while True:
+        # grab the frame from the threaded video stream and resize it
+        # to have a maximum width of 400 pixels
+        # frame = vs.read()
+        ret, frame = cap.read()
 
-    # detect faces in the frame and determine if they are wearing a
-    # face mask or not
-    (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
+        # try:
+        #     frame = imutils.resize(frame, width=400)
+        # except:
+        #     break
 
-    # loop over the detected face locations and their corresponding
-    # locations
-    for (box, pred) in zip(locs, preds):
-        # unpack the bounding box and predictions
-        (startX, startY, endX, endY) = box
-        (mask, withoutMask) = pred
+        # detect faces in the frame and determine if they are wearing a
+        # face mask or not
+        (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
 
-        # determine the class label and color we'll use to draw
-        # the bounding box and text
-        label = "Mask" if mask > withoutMask else "No Mask"
-        color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
-        if label == "No Mask":
-            picname = output_path + "nmsk/" + str(i) + ".png"
-            only_face_color = frame[startY:endY, startX:endX]
-            cv2.imwrite(picname, only_face_color)
-            ob.saveImageDb(only_face_color, 0)
-            i += 1
-        else:
-            picname = output_path + "mmsk/" + str(i) + ".png"
-            only_face_color = frame[startY:endY, startX:endX]
-            cv2.imwrite(picname, only_face_color)
-            ob.saveImageDb(only_face_color, 1)
-            i += 1
-        # include the probability in the label
-        label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
+        # loop over the detected face locations and their corresponding
+        # locations
+        for (box, pred) in zip(locs, preds):
+            # unpack the bounding box and predictions
+            (startX, startY, endX, endY) = box
+            (mask, withoutMask) = pred
 
-        # display the label and bounding box rectangle on the output
-        # frame
-        cv2.putText(
-            frame,
-            label,
-            (startX, startY - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.45,
-            color,
-            2,
-        )
-        cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
+            # determine the class label and color we'll use to draw
+            # the bounding box and text
+            label = "Mask" if mask > withoutMask else "No Mask"
+            color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
+            expansion = 10
+            if label == "No Mask":
+                picname = output_path + "nmsk/" + str(i) + ".png"
+                only_face_color = frame[
+                    startY - expansion : endY + expansion,
+                    startX - expansion : endX + expansion,
+                ]
+                # thread here
+                added = fcOb.addFrame(only_face_color)
+                if added:
+                    cv2.imwrite(picname, only_face_color)
+                    dbOb.saveImageDb(only_face_color, 0)
+                i += 1
+            else:
+                picname = output_path + "mmsk/" + str(i) + ".png"
+                only_face_color = frame[
+                    startY - expansion : endY + expansion,
+                    startX - expansion : endX + expansion,
+                ]
+                cv2.imwrite(picname, only_face_color)
+                dbOb.saveImageDb(only_face_color, 1)
+                i += 1
+            # include the probability in the label
+            label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
 
-    # show the output frame
-    cv2.imshow("Frame", frame)
-    key = cv2.waitKey(1) & 0xFF
+            # display the label and bounding box rectangle on the output
+            # frame
+            cv2.putText(
+                frame,
+                label,
+                (startX, startY - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                color,
+                2,
+            )
+            cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 
-    # if the `q` key was pressed, break from the loop
-    if key == ord("q"):
-        break
+        # show the output frame
+        cv2.imshow("Frame", frame)
+        key = cv2.waitKey(1) & 0xFF
 
-# do a bit of cleanup
-cv2.destroyAllWindows()
-# vs.stop()
+        # if the `q` key was pressed, break from the loop
+        if key == ord("q"):
+            break
+
+    # do a bit of cleanup
+    cv2.destroyAllWindows()
+    # vs.stop()
