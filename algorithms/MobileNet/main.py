@@ -8,8 +8,9 @@ import time
 import cv2
 import os
 import sys
+import threading
 
-sys.path.append("E:\Capstone\Implementation")
+sys.path.append("../..")
 from database import Database
 from faceClustering import *
 
@@ -83,25 +84,31 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
     return (locs, preds)
 
 
+def saveFrameThread(permission, frame):
+    if permission or fcOb.addFrame(frame):
+        cv2.imwrite(picname, frame)
+        dbOb.saveImageDb(frame, 0)
+
+
 if __name__ == "__main__":
-    dir_ = r"E:\Capstone\Implementation\algorithms\MobileNet\\"
+    # dir_ = r"E:\Capstone\Implementation\algorithms\MobileNet\\"
 
     # load our serialized face detector model from disk
-    prototxtPath = dir_ + r"face_detector\deploy.prototxt"
-    weightsPath = dir_ + r"face_detector\res10_300x300_ssd_iter_140000.caffemodel"
+    prototxtPath = r"face_detector\deploy.prototxt"  # dir_ +
+    weightsPath = r"face_detector\res10_300x300_ssd_iter_140000.caffemodel"  # dir_ +
     faceNet = cv2.dnn.readNet(prototxtPath, weightsPath)
 
     # load the face mask detector model from disk
     maskNet = load_model(
-        dir_ + r"mask_detector.model",
+        r"mask_detector.model",  # dir_ +
         compile=False,
     )
 
     # initialize the video stream
     print("[INFO] starting video stream...")
     # cap = VideoStream(src=0).start()
-    cap = cv2.VideoCapture("E:/Capstone/Implementation/mmsk.mp4")
-    output_path = "E:/Capstone/Implementation/output/"
+    cap = cv2.VideoCapture("../../mmsk.mp4")
+    output_path = "../../"
     fcOb = faceClustering()
     dbOb = Database()
 
@@ -140,10 +147,13 @@ if __name__ == "__main__":
                     startX - expansion : endX + expansion,
                 ]
                 # thread here
-                added = fcOb.addFrame(only_face_color)
-                if added:
-                    cv2.imwrite(picname, only_face_color)
-                    dbOb.saveImageDb(only_face_color, 0)
+                threading.Thread(
+                    target=saveFrameThread,
+                    args=(
+                        False,
+                        only_face_color,
+                    ),
+                ).start()
                 i += 1
             else:
                 picname = output_path + "mmsk/" + str(i) + ".png"
@@ -151,8 +161,15 @@ if __name__ == "__main__":
                     startY - expansion : endY + expansion,
                     startX - expansion : endX + expansion,
                 ]
-                cv2.imwrite(picname, only_face_color)
-                dbOb.saveImageDb(only_face_color, 1)
+                threading.Thread(
+                    target=saveFrameThread,
+                    args=(
+                        True,
+                        only_face_color,
+                    ),
+                ).start()
+                # cv2.imwrite(picname, only_face_color)
+                # dbOb.saveImageDb(only_face_color, 1)
                 i += 1
             # include the probability in the label
             label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
