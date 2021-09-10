@@ -118,11 +118,15 @@ def outputDecorator(label):
     cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 
 
-async def saveFrameThread(fcOb, dbOb, picname, permission, frame):
+def saveFrameThread(fcOb, dbOb, picname, label, permission, frame):
     if permission or fcOb.addFrame(frame):
-        print("inside")
+        # print("inside")
         cv2.imwrite(picname, frame)
-        dbOb.saveImageDb(frame, 0)
+        if label == "No Mask":
+            dbOb.saveImageDb(frame, 0)
+        else:
+            print("db 1")
+            dbOb.saveImageDb(frame, 1)
 
 
 if __name__ == "__main__":
@@ -191,8 +195,8 @@ if __name__ == "__main__":
                     picname = output_path + "mmsk\\" + str(i) + ".png"
                     permission = True
 
-            args = [fcOb, dbOb, picname, permission, only_face_color]
-            asyncio.run(saveFrameThread(*args))
+                args = [fcOb, dbOb, picname, label, permission, only_face_color]
+                saveFrameThread(*args)
 
             # Experiment :
             # print(type(only_face_color))
