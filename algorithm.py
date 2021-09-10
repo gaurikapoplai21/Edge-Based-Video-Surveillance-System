@@ -7,6 +7,8 @@ import os
 import base64
 import cv2
 import asyncio
+
+from tensorflow.python.keras.applications.mobilenet_v2 import MobileNetV2
 from database import *
 import subprocess, time
 
@@ -119,14 +121,16 @@ app = Flask(__name__)
 
 @app.route("/", methods=["POST", "GET"])
 def index():
+    global AlgoName
     ob = Database()
     # oneTime(ob)
     algoDetails = getAllAlgo()
     imgs = getImages(ob)
     if request.method == "GET":
-        return render_template("./index.html", algoDetails=algoDetails, images=imgs)
+        return render_template(
+            "./index.html", algoDetails=algoDetails, images=imgs, algoSeleted=AlgoName
+        )
     else:
-        global AlgoName
         if request.form.get("run"):
             # asyncio.run(runAlgo())
             runAlgo()
@@ -134,12 +138,19 @@ def index():
         else:
             for algo in algoDetails:
                 if request.form.get(str(algo[0])):
+                    print("here")
                     AlgoName = algo[1]
                     downloadAlgo()
-            return render_template("./index.html", algoDetails=algoDetails, images=imgs)
+            print(AlgoName)
+            return render_template(
+                "./index.html",
+                algoDetails=algoDetails,
+                images=imgs,
+                algoSeleted=AlgoName,
+            )
 
 
 if __name__ == "__main__":
     conn = sqlite3.connect(r"capstone.db", check_same_thread=False)
-    AlgoName = None
+    AlgoName = "MobileNet"
     app.run(debug=True)
