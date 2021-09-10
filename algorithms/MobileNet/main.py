@@ -1,3 +1,4 @@
+from numpy.lib.function_base import _ARGUMENT_LIST
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
@@ -11,8 +12,11 @@ import sys
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.pool import ThreadPool as Pool
+import subprocess
+import json
 
-print("MobileNet Algorithm started" + "_" * 20)
+print("MobileNet Algorithm started")
+print("_" * 100)
 
 
 def getParentDirectory(levels):
@@ -114,8 +118,9 @@ def outputDecorator(label):
     cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 
 
-def saveFrameThread(fcOb, dbOb, picname, permission, frame):
+async def saveFrameThread(fcOb, dbOb, picname, permission, frame):
     if permission or fcOb.addFrame(frame):
+        print("inside")
         cv2.imwrite(picname, frame)
         dbOb.saveImageDb(frame, 0)
 
@@ -149,12 +154,13 @@ if __name__ == "__main__":
         # to have a maximum width of 400 pixels
         # frame = vs.read()
         ret, frame = cap.read()
-        print(i)
+        # print(i)
+
         # Terminate if frame is None
         if frame is None:
             break
 
-        if i % 10 == 0:
+        if i % 5 == 0:
             # detect faces in the frame and determine if they are wearing a
             # face mask or not
             (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
@@ -180,15 +186,35 @@ if __name__ == "__main__":
                     # thread here
                     # GIL - Global Interpreter Lock - One thread at a time
                     # Can't use threads
-                    args = [fcOb, dbOb, picname, False, only_face_color]
+                    permission = False
                 else:
                     picname = output_path + "mmsk\\" + str(i) + ".png"
-                    args = [fcOb, dbOb, picname, True, only_face_color]
-            saveFrameThread(*args)
+                    permission = True
+
+            args = [fcOb, dbOb, picname, permission, only_face_color]
+            asyncio.run(saveFrameThread(*args))
+
+            # Experiment :
+            # print(type(only_face_color))
+            # args = [
+            #     picname,
+            #     permission,
+            #     only_face_color.tolist(),
+            # ]
+            # args = json.dumps(args)
+            # res = subprocess.Popen(
+            #     ["python ", grandparentDir + r"\faceClusteringProgram.py"],
+            #     close_fds=True,
+            #     stdin=subprocess.PIPE,
+            #     stdout=subprocess.PIPE,
+            # )
+            # res.stdin.write(b"hello")
+            # output = res.communicate()[0]
+            # res.stdin.close()
 
         i += 1
 
-        # outputDecorator(label)
+        outputDecorator(label)
         # show the output frame
         cv2.imshow("Frame", frame)
         key = cv2.waitKey(1) & 0xFF
