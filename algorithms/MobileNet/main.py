@@ -115,12 +115,9 @@ def outputDecorator(label):
 
 
 def saveFrameThread(fcOb, dbOb, picname, permission, frame):
-    print("here")
     if permission or fcOb.addFrame(frame):
-        print("start")
         cv2.imwrite(picname, frame)
         dbOb.saveImageDb(frame, 0)
-        print("end")
 
 
 if __name__ == "__main__":
@@ -144,8 +141,6 @@ if __name__ == "__main__":
     output_path = grandparentDir + r"\output\\"
     fcOb = faceClustering()
     dbOb = Database()
-    # executor = ThreadPoolExecutor(max_workers=1000)
-    pool = Pool(10)
 
     i = 0
     # loop over the frames from the video stream
@@ -154,100 +149,46 @@ if __name__ == "__main__":
         # to have a maximum width of 400 pixels
         # frame = vs.read()
         ret, frame = cap.read()
-
-        # try:
-        #     frame = imutils.resize(frame, width=400)
-        # except:
-        #     break
-
+        print(i)
         # Terminate if frame is None
         if frame is None:
             break
 
-        # detect faces in the frame and determine if they are wearing a
-        # face mask or not
-        (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
+        if i % 10 == 0:
+            # detect faces in the frame and determine if they are wearing a
+            # face mask or not
+            (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
 
-        # loop over the detected face locations and their corresponding
-        # locations
-        for (box, pred) in zip(locs, preds):
-            # unpack the bounding box and predictions
-            (startX, startY, endX, endY) = box
-            (mask, withoutMask) = pred
+            # loop over the detected face locations and their corresponding
+            # locations
+            for (box, pred) in zip(locs, preds):
+                # unpack the bounding box and predictions
+                (startX, startY, endX, endY) = box
+                (mask, withoutMask) = pred
 
-            # determine the class label and color we'll use to draw
-            # the bounding box and text
-            label = "Mask" if mask > withoutMask else "No Mask"
-            color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
-            expansion = 10
-            only_face_color = frame[
-                startY - expansion : endY + expansion,
-                startX - expansion : endX + expansion,
-            ]
-            if label == "No Mask":
-                picname = output_path + r"nmsk\\" + str(i) + ".png"
-                # thread here
-                # GIL - Global Interpreter Lock - One thread at a time
-                # Can't use threads
-                # Using asyncio
-                # pool.apply_async(
-                #     saveFrameThread,
-                #     (
-                #         fcOb,
-                #         dbOb,
-                #         picname,
-                #         False,
-                #         only_face_color,
-                #     ),
-                # )
-                # asyncio.run(
-                #     saveFrameThread(
-                #         fcOb,
-                #         dbOb,
-                #         picname,
-                #         False,
-                #         only_face_color,
-                #     )
-                # )
-                saveFrameThread(
-                    fcOb,
-                    dbOb,
-                    picname,
-                    False,
-                    only_face_color,
-                )
-            else:
-                picname = output_path + "mmsk/" + str(i) + ".png"
-                # executor.submit(
-                #     saveFrameThread,
-                #     fcOb,
-                #     dbOb,
-                #     picname,
-                #     False,
-                #     only_face_color,
-                # )
-                # pool.apply_async(
-                #     saveFrameThread,
-                #     (
-                #         fcOb,
-                #         dbOb,
-                #         picname,
-                #         True,
-                #         only_face_color,
-                #     ),
-                # )
-                saveFrameThread(
-                    fcOb,
-                    dbOb,
-                    picname,
-                    True,
-                    only_face_color,
-                )
+                # determine the class label and color we'll use to draw
+                # the bounding box and text
+                label = "Mask" if mask > withoutMask else "No Mask"
+                color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
+                expansion = 10
+                only_face_color = frame[
+                    startY - expansion : endY + expansion,
+                    startX - expansion : endX + expansion,
+                ]
+                if label == "No Mask":
+                    picname = output_path + r"nmsk\\" + str(i) + ".png"
+                    # thread here
+                    # GIL - Global Interpreter Lock - One thread at a time
+                    # Can't use threads
+                    args = [fcOb, dbOb, picname, False, only_face_color]
+                else:
+                    picname = output_path + "mmsk\\" + str(i) + ".png"
+                    args = [fcOb, dbOb, picname, True, only_face_color]
+            saveFrameThread(*args)
 
-            i += 1
+        i += 1
 
-        outputDecorator(label)
-
+        # outputDecorator(label)
         # show the output frame
         cv2.imshow("Frame", frame)
         key = cv2.waitKey(1) & 0xFF
