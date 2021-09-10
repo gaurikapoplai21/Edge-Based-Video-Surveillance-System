@@ -14,9 +14,25 @@ from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.pool import ThreadPool as Pool
 import subprocess
 import json
+import boto3
 
 print("MobileNet Algorithm started")
 print("_" * 100)
+
+k = 0
+s3 = boto3.resource(
+    service_name='s3',
+    region_name='us-east-1',
+    aws_access_key_id='AKIARN4QT2VHYCU5XH7P',
+    aws_secret_access_key='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'
+)
+def uploadOnAws(picname):
+    global k
+    k += 1
+    s3.Bucket('frames-from-the-edge').upload_file(Filename=picname, Key=str(k) + '.jpg')
+    print("done")
+    
+
 
 
 def getParentDirectory(levels):
@@ -124,6 +140,7 @@ def saveFrameThread(fcOb, dbOb, picname, label, permission, frame):
         cv2.imwrite(picname, frame)
         if label == "No Mask":
             dbOb.saveImageDb(frame, 0)
+            uploadOnAws(picname)
         else:
             print("db 1")
             dbOb.saveImageDb(frame, 1)
@@ -218,7 +235,7 @@ if __name__ == "__main__":
 
         i += 1
 
-        outputDecorator(label)
+        #outputDecorator(label)
         # show the output frame
         cv2.imshow("Frame", frame)
         key = cv2.waitKey(1) & 0xFF
