@@ -8,13 +8,25 @@ import time
 import cv2
 import os
 import sys
-import threading
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from multiprocessing.pool import ThreadPool as Pool
 
-sys.path.append("../..")
+print("MobileNet Algorithm started" + "_" * 20)
+
+
+def getParentDirectory(levels):
+    cur = os.path.dirname(__file__)
+    for _ in range(0, levels):
+        cur = os.path.dirname(cur)
+    return os.path.realpath(cur)
+
+
+grandparentDir = getParentDirectory(2)
+sys.path.append(grandparentDir)
+
 from database import Database
 from faceClustering import *
-
-i = 0
 
 
 def detect_and_predict_mask(frame, faceNet, maskNet):
@@ -84,34 +96,58 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
     return (locs, preds)
 
 
-def saveFrameThread(permission, frame):
+def outputDecorator(label):
+    # include the probability in the label
+    label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
+
+    # display the label and bounding box rectangle on the output
+    # frame
+    cv2.putText(
+        frame,
+        label,
+        (startX, startY - 10),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.45,
+        color,
+        2,
+    )
+    cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
+
+
+def saveFrameThread(fcOb, dbOb, picname, permission, frame):
+    print("here")
     if permission or fcOb.addFrame(frame):
+        print("start")
         cv2.imwrite(picname, frame)
         dbOb.saveImageDb(frame, 0)
+        print("end")
 
 
 if __name__ == "__main__":
-    # dir_ = r"E:\Capstone\Implementation\algorithms\MobileNet\\"
+    dir_ = getParentDirectory(0)
 
     # load our serialized face detector model from disk
-    prototxtPath = r"face_detector\deploy.prototxt"  # dir_ +
-    weightsPath = r"face_detector\res10_300x300_ssd_iter_140000.caffemodel"  # dir_ +
+    prototxtPath = dir_ + r"\face_detector\deploy.prototxt"
+    weightsPath = dir_ + r"\face_detector\res10_300x300_ssd_iter_140000.caffemodel"
     faceNet = cv2.dnn.readNet(prototxtPath, weightsPath)
 
     # load the face mask detector model from disk
     maskNet = load_model(
-        r"mask_detector.model",  # dir_ +
+        dir_ + r"\mask_detector.model",
         compile=False,
     )
 
     # initialize the video stream
     print("[INFO] starting video stream...")
     # cap = VideoStream(src=0).start()
-    cap = cv2.VideoCapture("../../mmsk.mp4")
-    output_path = "../../"
+    cap = cv2.VideoCapture(grandparentDir + r"\mmsk.mp4")
+    output_path = grandparentDir + r"\output\\"
     fcOb = faceClustering()
     dbOb = Database()
+    # executor = ThreadPoolExecutor(max_workers=1000)
+    pool = Pool(10)
 
+    i = 0
     # loop over the frames from the video stream
     while True:
         # grab the frame from the threaded video stream and resize it
@@ -123,6 +159,10 @@ if __name__ == "__main__":
         #     frame = imutils.resize(frame, width=400)
         # except:
         #     break
+
+        # Terminate if frame is None
+        if frame is None:
+            break
 
         # detect faces in the frame and determine if they are wearing a
         # face mask or not
@@ -140,52 +180,73 @@ if __name__ == "__main__":
             label = "Mask" if mask > withoutMask else "No Mask"
             color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
             expansion = 10
+            only_face_color = frame[
+                startY - expansion : endY + expansion,
+                startX - expansion : endX + expansion,
+            ]
             if label == "No Mask":
-                picname = output_path + "nmsk/" + str(i) + ".png"
-                only_face_color = frame[
-                    startY - expansion : endY + expansion,
-                    startX - expansion : endX + expansion,
-                ]
+                picname = output_path + r"nmsk\\" + str(i) + ".png"
                 # thread here
-                threading.Thread(
-                    target=saveFrameThread,
-                    args=(
-                        False,
-                        only_face_color,
-                    ),
-                ).start()
-                i += 1
+                # GIL - Global Interpreter Lock - One thread at a time
+                # Can't use threads
+                # Using asyncio
+                # pool.apply_async(
+                #     saveFrameThread,
+                #     (
+                #         fcOb,
+                #         dbOb,
+                #         picname,
+                #         False,
+                #         only_face_color,
+                #     ),
+                # )
+                # asyncio.run(
+                #     saveFrameThread(
+                #         fcOb,
+                #         dbOb,
+                #         picname,
+                #         False,
+                #         only_face_color,
+                #     )
+                # )
+                saveFrameThread(
+                    fcOb,
+                    dbOb,
+                    picname,
+                    False,
+                    only_face_color,
+                )
             else:
                 picname = output_path + "mmsk/" + str(i) + ".png"
-                only_face_color = frame[
-                    startY - expansion : endY + expansion,
-                    startX - expansion : endX + expansion,
-                ]
-                threading.Thread(
-                    target=saveFrameThread,
-                    args=(
-                        True,
-                        only_face_color,
-                    ),
-                ).start()
-                # cv2.imwrite(picname, only_face_color)
-                # dbOb.saveImageDb(only_face_color, 1)
-                i += 1
-            # include the probability in the label
-            label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
+                # executor.submit(
+                #     saveFrameThread,
+                #     fcOb,
+                #     dbOb,
+                #     picname,
+                #     False,
+                #     only_face_color,
+                # )
+                # pool.apply_async(
+                #     saveFrameThread,
+                #     (
+                #         fcOb,
+                #         dbOb,
+                #         picname,
+                #         True,
+                #         only_face_color,
+                #     ),
+                # )
+                saveFrameThread(
+                    fcOb,
+                    dbOb,
+                    picname,
+                    True,
+                    only_face_color,
+                )
 
-            # display the label and bounding box rectangle on the output
-            # frame
-            cv2.putText(
-                frame,
-                label,
-                (startX, startY - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.45,
-                color,
-                2,
-            )
-            cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
+            i += 1
+
+        outputDecorator(label)
 
         # show the output frame
         cv2.imshow("Frame", frame)
@@ -197,4 +258,4 @@ if __name__ == "__main__":
 
     # do a bit of cleanup
     cv2.destroyAllWindows()
-    # vs.stop()
+    # cap.stop()

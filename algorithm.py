@@ -1,3 +1,6 @@
+from concurrent.futures.thread import ThreadPoolExecutor
+from multiprocessing.pool import ThreadPool
+import threading
 from flask import Flask, render_template, request, redirect, url_for
 import sqlite3
 import os
@@ -5,6 +8,7 @@ import base64
 import cv2
 import asyncio
 from database import *
+import subprocess, time
 
 
 def create_table(sql):
@@ -48,8 +52,27 @@ def downloadAlgo():
     os.system("python ./algorithmDownload.py " + AlgoName)
 
 
-async def runAlgo():
-    os.system("python ./algorithms/" + AlgoName + "/main.py")
+algoProcess = None
+
+
+def runAlgo():
+    cmd = "python ./algorithms/" + AlgoName + "/main.py"
+    # Normal Execution
+    # os.system("python ./algorithms/" + AlgoName + "/main.py")
+
+    # SubProcess
+    algoProcess = subprocess.Popen(
+        ["python ", "./algorithms/" + AlgoName + "/main.py"],
+        close_fds=True,
+    )
+
+    # Threading
+    # t = threading.Thread(target=os.system(cmd))
+    # t.start()
+    # t.join()
+
+    # exe = ThreadPoolExecutor(2)
+    # exe.submit(os.system(cmd))
 
 
 def getAllAlgo():
@@ -105,7 +128,8 @@ def index():
     else:
         global AlgoName
         if request.form.get("run"):
-            asyncio.run(runAlgo())
+            # asyncio.run(runAlgo())
+            runAlgo()
             return redirect(url_for("index"))
         else:
             for algo in algoDetails:
