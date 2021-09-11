@@ -219,7 +219,16 @@ if __name__ == "__main__":
                     picname = output_path + "mmsk\\" + str(i) + ".png"
                     permission = True
 
-                data_to_send = {"label": label, "frame": only_face_color.tolist()}
+                # Gray:
+                # data_to_send = {
+                #     "label": label,
+                #     "frame": cv2.cvtColor(only_face_color, cv2.COLOR_BGR2GRAY).tolist(),
+                # }
+                # Color:
+                data_to_send = {
+                    "label": label,
+                    "frame": only_face_color.tolist(),
+                }
                 socket_conn.sendall(json.dumps(data_to_send).encode() + b"|")
                 # args = [fcOb, dbOb, picname, label, permission, only_face_color]
                 # saveFrameThread(*args)

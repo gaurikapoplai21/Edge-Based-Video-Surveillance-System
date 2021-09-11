@@ -13,8 +13,9 @@ def formImage(full_data, data, lock):
     if idx == -1:
         return full_data + data
     else:
-        job = json.loads((full_data + data[:idx]).decode())
-        job["frame"] = numpy.array(job["frame"])
+        job = full_data + data[:idx]
+        # job = json.loads((full_data + data[:idx]).decode())
+        # job["frame"] = numpy.array(job["frame"])
 
         lock.acquire()
         job_heap.append(job)
@@ -44,16 +45,25 @@ def sendTasks(lock):
     HOST = "127.0.0.1"  # The server's hostname or IP address
     PORT = 5001  # The port used by the server
     i = 0
-    while 1:
-        if job_heap:
-            print("Writing..." + str(i))
-            lock.acquire()
-            job = job_heap.popleft()
-            lock.release()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((HOST, PORT))
+        while 1:
+            if job_heap:
+                print("Writing..." + str(i))
+                lock.acquire()
+                job = job_heap.popleft()
+                lock.release()
 
-            # Write:
-            cv2.imwrite("output/nmsk/" + str(i) + ".png", job["frame"])
-            i += 1
+                # Write:
+                # cv2.imwrite(
+                #     "output/nmsk/" + str(i) + ".png",
+                #     cv2.cvtColor(
+                #         numpy.float32(numpy.array(json.loads(job.decode())["frame"])),
+                #         cv2.COLOR_BGR2GRAY,
+                #     ),
+                # )
+                s.sendall(job + b"|")
+                i += 1
 
 
 if __name__ == "__main__":
