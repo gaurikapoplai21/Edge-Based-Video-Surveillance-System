@@ -6,6 +6,7 @@ import face_recognition
 
 # Global Job heap
 job_heap = deque()
+encoded = deque()
 
 
 def formImage(full_data, data, lock):
@@ -42,33 +43,55 @@ def recieveJobs(lock):
             print("done")
 
 
+def encodeFace(lock_job, lock_enc):
+    i = 0
+    while 1:
+        if job_heap:
+            print("Encoding..." + str(i))
+            lock_job.acquire()
+            job = job_heap.popleft()
+            lock_job.release()
+
+            # print(face_recognition.face_encodings(job["frame"]))
+            frameEncoding = face_recognition.face_encodings(job["frame"])
+            if frameEncoding == []: continue;
+            job["frame"] = frameEncoding
+
+            lock_enc.acquire()
+            encoded.append(job)
+            lock_enc.release()
+
+            i += 1
+
+
 def sendTasks(lock):
     HOST = "127.0.0.1"  # The server's hostname or IP address
     PORT = 5002  # The port used by the server
     i = 0
-    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    #     s.connect((HOST, PORT))
-    print("FOCK")
-    while 1:
-        if job_heap:
-            print("Writing..." + str(i))
-            lock.acquire()
-            job = job_heap.popleft()
-            lock.release()
-            # Write:
-            # cv2.imwrite("output/nmsk/" + str(i) + ".png", job["frame"])
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((HOST, PORT))
+        while 1:
+            if job_heap:
 
-            # s.sendall(job)
-            # cv2.imwrite("output/nmsk/" + str(i) + ".png", job["frame"])
-            print(face_recognition.face_encodings(job["frame"]))
-            i += 1
+                print("Sending..." + str(i))
+
+                lock.acquire()
+                job = job_heap.popleft()
+                lock.release()
+
+                s.sendall(json.dumps(job).encode() + b"|")
+                i += 1
 
 
 if __name__ == "__main__":
-    lock = Lock()
-    task1 = Thread(target=recieveJobs, args=(lock,))
-    task2 = Thread(target=sendTasks, args=(lock,))
+    lock_job = Lock()
+    lock_enc = Lock()
+    task1 = Thread(target=recieveJobs, args=(lock_job,))
+    task2 = Thread(target=encodeFace, args=(lock_job, lock_enc))
+    # task3 = Thread(target=sendTasks, args=(lock_enc))
     task1.start()
     task2.start()
+    # task3.start()
     task1.join()
     task2.join()
+    # task3.join()
