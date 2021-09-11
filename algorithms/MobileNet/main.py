@@ -151,8 +151,8 @@ import socket
 
 if __name__ == "__main__":
     dir_ = getParentDirectory(0)
-    # HOST = "127.0.0.1"  # The server's hostname or IP address
-    # PORT = 65432  # The port used by the server
+    HOST = "127.0.0.1"  # The server's hostname or IP address
+    PORT = 5000  # The port used by the server
 
     # load our serialized face detector model from disk
     prototxtPath = dir_ + r"\face_detector\deploy.prototxt"
@@ -172,8 +172,8 @@ if __name__ == "__main__":
     output_path = grandparentDir + r"\output\\"
     fcOb = faceClustering()
     dbOb = Database()
-    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # s.connect((HOST, PORT))
+    socket_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    socket_conn.connect((HOST, PORT))
 
     i = 0
     # loop over the frames from the video stream
@@ -219,27 +219,10 @@ if __name__ == "__main__":
                     picname = output_path + "mmsk\\" + str(i) + ".png"
                     permission = True
 
-                # s.sendall(json.dumps(only_face_color.tolist()).encode() + b"|")
-                args = [fcOb, dbOb, picname, label, permission, only_face_color]
-                saveFrameThread(*args)
-
-            # Experiment :
-            # print(type(only_face_color))
-            # args = [
-            #     picname,
-            #     permission,
-            #     only_face_color.tolist(),
-            # ]
-            # args = json.dumps(args)
-            # res = subprocess.Popen(
-            #     ["python ", grandparentDir + r"\faceClusteringProgram.py"],
-            #     close_fds=True,
-            #     stdin=subprocess.PIPE,
-            #     stdout=subprocess.PIPE,
-            # )
-            # res.stdin.write(b"hello")
-            # output = res.communicate()[0]
-            # res.stdin.close()
+                data_to_send = {"label": label, "frame": only_face_color.tolist()}
+                socket_conn.sendall(json.dumps(data_to_send).encode() + b"|")
+                # args = [fcOb, dbOb, picname, label, permission, only_face_color]
+                # saveFrameThread(*args)
 
         i += 1
 
