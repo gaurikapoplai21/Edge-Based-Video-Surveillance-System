@@ -15,24 +15,30 @@ from multiprocessing.pool import ThreadPool as Pool
 import subprocess
 import json
 import boto3
+import base64
+import requests
 
 print("MobileNet Algorithm started")
 print("_" * 100)
 
 k = 0
-s3 = boto3.resource(
-    service_name='s3',
-    region_name='us-east-1',
-    aws_access_key_id='AKIARN4QT2VHYCU5XH7P',
-    aws_secret_access_key='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'
-)
+# s3 = boto3.resource(
+#     service_name='s3',
+#     region_name='us-east-1',
+#     aws_access_key_id='AKIARN4QT2VHYCU5XH7P',
+#     aws_secret_access_key='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'
+# )
 def uploadOnAws(picname):
-    global k
-    k += 1
-    s3.Bucket('frames-from-the-edge').upload_file(Filename=picname, Key=str(k) + '.jpg')
-    print("done")
+        global k
+        k += 1
+#     s3.Bucket('frames-from-the-edge').upload_file(Filename='images'picname, Key=str(k) + '.jpg')
+#     print("done")
     
+        with open(picname, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read())
 
+        response = requests.post('https://w1vz8j0cqk.execute-api.us-east-1.amazonaws.com/prod/demo-lambda',json={'name':'dumped/' + str(k) + '.jpg','file':encoded_string.decode()})
+        print(response.json())
 
 
 def getParentDirectory(levels):
