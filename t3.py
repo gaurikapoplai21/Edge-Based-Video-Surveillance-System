@@ -1,11 +1,14 @@
 import cv2, json, numpy
+from face_recognition.api import face_locations
 import socket
 from collections import deque
 from threading import Thread, Lock
 import face_recognition
+from database import *
 
 # Global Job heap
 job_heap = deque()
+encodedFrames = []
 
 
 def formImage(full_data, data, lock):
@@ -14,7 +17,9 @@ def formImage(full_data, data, lock):
         return full_data + data
     else:
         job = json.loads((full_data + data[:idx]).decode())
-        job["frame"] = numpy.array(job["frame"])
+        job["frame"] = numpy.array(job["frame"]).astype(numpy.uint8)
+        job["encoded"] = numpy.array(job["encoded"]).astype(numpy.uint8)
+        # print(job["frame"])
         lock.acquire()
         job_heap.append(job)
         lock.release()
@@ -23,7 +28,7 @@ def formImage(full_data, data, lock):
 
 def recieveJobs(lock):
     HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
-    PORT = 5001  # Port to listen on (non-privileged ports are > 1023)
+    PORT = 5002  # Port to listen on (non-privileged ports are > 1023)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
         s.listen()
@@ -39,15 +44,47 @@ def recieveJobs(lock):
             print("done")
 
 
+def checkUnique(res):
+    # True: Unique Frame
+    # False: Frame Match Found
+    if res == []:
+        return True
+    for x in res:
+        if x:
+            return False
+    return True
+
+
+def logic(encoded):
+    # True: Frame Added
+    # False: Frame Discarded
+    res = face_recognition.compare_faces(encodedFrames, encoded)
+    if checkUnique(res):
+        encodedFrames.append(encoded)
+        return True
+    return False
+
+
 def locateAndSend(lock):
     i = 0
+    dbOb = Database()
+    dir_ = "output\\nmsk\\"
     while 1:
         if job_heap:
             print("Writing..." + str(i))
+
             lock.acquire()
             job = job_heap.popleft()
             lock.release()
-            print(face_recognition.face_encodings(job["frame"]))
+
+            label = job["label"]
+            print(label)
+            frame = job["frame"]
+            encoded = job["encoded"]
+            if label == "Mask" or logic(encoded):
+                cv2.imwrite(dir_ + str(i) + ".png", frame)
+                dbOb.saveImageDb(frame, 0)
+
             i += 1
 
 

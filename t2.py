@@ -43,7 +43,7 @@ def recieveJobs(lock):
             print("done")
 
 
-def encodeFace(lock_job, lock_enc):
+def encodeFaces(lock_job, lock_enc):
     i = 0
     while 1:
         if job_heap:
@@ -54,8 +54,10 @@ def encodeFace(lock_job, lock_enc):
 
             # print(face_recognition.face_encodings(job["frame"]))
             frameEncoding = face_recognition.face_encodings(job["frame"])
-            if frameEncoding == []: continue;
-            job["frame"] = frameEncoding
+            if frameEncoding == []:
+                continue
+            job["frame"] = job["frame"].tolist()
+            job["encoded"] = frameEncoding[0].tolist()
 
             lock_enc.acquire()
             encoded.append(job)
@@ -71,15 +73,15 @@ def sendTasks(lock):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
         while 1:
-            if job_heap:
+            if encoded:
 
                 print("Sending..." + str(i))
 
                 lock.acquire()
-                job = job_heap.popleft()
+                encodedFrame = encoded.popleft()
                 lock.release()
 
-                s.sendall(json.dumps(job).encode() + b"|")
+                s.sendall(json.dumps(encodedFrame).encode() + b"|")
                 i += 1
 
 
@@ -87,11 +89,17 @@ if __name__ == "__main__":
     lock_job = Lock()
     lock_enc = Lock()
     task1 = Thread(target=recieveJobs, args=(lock_job,))
-    task2 = Thread(target=encodeFace, args=(lock_job, lock_enc))
-    # task3 = Thread(target=sendTasks, args=(lock_enc))
+    task2 = Thread(
+        target=encodeFaces,
+        args=(
+            lock_job,
+            lock_enc,
+        ),
+    )
+    task3 = Thread(target=sendTasks, args=(lock_enc,))
     task1.start()
     task2.start()
-    # task3.start()
+    task3.start()
     task1.join()
     task2.join()
-    # task3.join()
+    task3.join()

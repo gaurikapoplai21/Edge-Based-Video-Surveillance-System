@@ -9,6 +9,7 @@ import json, sys, numpy
 
 print("entered!!!!")
 print(input())
+
 # fcOb = faceClustering()
 # dbOb = Database()
 
