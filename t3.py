@@ -12,22 +12,7 @@ job_heap = deque()
 encodedFrames = []
 
 
-"""def formImage(full_data, data, lock):
-    idx = data.find(b"|")
-    if idx == -1:
-        return full_data + data
-    else:
-        job = json.loads((full_data + data[:idx]).decode())
-        job["frame"] = numpy.array(job["frame"]).astype(numpy.uint8)
-        job["encoded"] = numpy.array(job["encoded"]).astype(numpy.uint8)
-        # print(job["frame"])
-        lock.acquire()
-        job_heap.append(job)
-        lock.release()
-        return data[idx + 1 :]"""
-
-
-def formImage(data, lock):
+def formatData(data, lock):
     length = 0
     i = 0
     f = 0
@@ -58,11 +43,10 @@ def recieveJobs(lock):
         conn, addr = s.accept()
         with conn:
             print("Connected by", addr)
-            full_data = b""
             while True:
                 data = conn.recv(4096)
                 # print(data)
-                formImage(data.decode(), lock)
+                formatData(data.decode(), lock)
                 if not data:
                     break
             print("done")

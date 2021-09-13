@@ -9,26 +9,6 @@ job_heap = deque()
 conf = None
 
 
-"""def formImage(data, lock):
-    length = 0
-    i = 0
-    f = 0
-    while i < len(data):
-        if data[i] == "%":
-            f = 1
-        elif data[i] == "{":
-            lock.acquire()
-            job_heap.append(json.loads(data[i : i + length]))
-            lock.release()
-            i += length
-            length = 0
-            f = 0
-            continue
-        elif f:
-            length = 10 * length + int(data[i])
-        i += 1"""
-
-
 def recieveJobs(lock):
     HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
     PORT = 5000  # Port to listen on (non-privileged ports are > 1023)
@@ -51,7 +31,6 @@ def recieveJobs(lock):
 
 def sendTasks(lock):
     HOST = "127.0.0.1"  # The server's hostname or IP address
-    PORT = 5001  # The port used by the server
     i = 0
     connections = []
     for w in conf["workers"]:

@@ -10,7 +10,7 @@ job_heap = deque()
 encoded = deque()
 
 
-def formImage(data, lock):
+def formatData(data, lock):
     length = 0
     i = 0
     f = 0
@@ -43,7 +43,7 @@ def recieveJobs(lock):
             while True:
                 data = conn.recv(1024)
                 # print(data)
-                formImage(data.decode(), lock)
+                formatData(data.decode(), lock)
                 if not data:
                     break
             print("done")
