@@ -105,10 +105,11 @@ def locateAndSend(lock):
             frame = job["frame"]
             encoded = job["encoded"]
             if label == "Mask" or logic(encoded):
-                cv2.imwrite(dir_ + frame + ".png", frame)
-                dbOb.saveImageDb(frame, 0)
+                print(frame)
+                # cv2.imwrite(dir_ + frame + ".png", frame)
+                # dbOb.saveImageDb(frame, 0)
 
-            print(job)
+            # print(job)
 
             i += 1
 
