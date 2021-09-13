@@ -5,6 +5,7 @@ from collections import deque
 from threading import Thread, Lock
 import face_recognition
 from database import *
+import sys
 
 # Global Job heap
 job_heap = deque()
@@ -50,7 +51,7 @@ def formImage(data, lock):
 
 def recieveJobs(lock):
     HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
-    PORT = 5002  # Port to listen on (non-privileged ports are > 1023)
+    PORT = int(sys.argv[1])  # Port to listen on (non-privileged ports are > 1023)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
         s.listen()
@@ -94,14 +95,14 @@ def locateAndSend(lock):
     dir_ = "output\\nmsk\\"
     while 1:
         if job_heap:
-            print("Writing..." + str(i))
+            # print("Writing..." + str(i))
 
             lock.acquire()
             job = job_heap.popleft()
             lock.release()
 
             label = job["label"]
-            print(label)
+            # print(label)
             frame = job["frame"]
             encoded = job["encoded"]
             if label == "Mask" or logic(encoded):

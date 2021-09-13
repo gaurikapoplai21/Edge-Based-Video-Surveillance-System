@@ -3,6 +3,7 @@ import socket
 from collections import deque
 from threading import Thread, Lock
 import face_recognition
+import sys
 
 # Global Job heap
 job_heap = deque()
@@ -31,7 +32,7 @@ def formImage(data, lock):
 
 def recieveJobs(lock):
     HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
-    PORT = 5001  # Port to listen on (non-privileged ports are > 1023)
+    PORT = int(sys.argv[1])  # Port to listen on (non-privileged ports are > 1023)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
         s.listen()
@@ -57,7 +58,7 @@ def encodeFaces(lock_job, lock_enc):
             job = job_heap.popleft()
             lock_job.release()
 
-            # print(job)
+            print(job)
 
             frameEncoding = face_recognition.face_encodings(
                 cv2.imread(r"temp\\images\\" + job["frame"] + ".png")
@@ -75,7 +76,7 @@ def encodeFaces(lock_job, lock_enc):
 
 def sendTasks(lock):
     HOST = "127.0.0.1"  # The server's hostname or IP address
-    PORT = 5002  # The port used by the server
+    PORT = int(sys.argv[2])  # The port used by the server
     i = 0
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))

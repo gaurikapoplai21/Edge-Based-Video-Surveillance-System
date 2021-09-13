@@ -16,6 +16,7 @@ import subprocess
 import json
 import boto3
 from tensorflow.python.keras.backend import GraphExecutionFunction
+import socket
 
 print("MobileNet Algorithm started")
 print("_" * 100)
@@ -145,9 +146,6 @@ def saveFrameThread(fcOb, dbOb, picname, label, permission, frame):
         else:
             print("db 1")
             dbOb.saveImageDb(frame, 1)
-
-
-import socket
 
 
 if __name__ == "__main__":
