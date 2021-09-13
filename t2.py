@@ -9,19 +9,24 @@ job_heap = deque()
 encoded = deque()
 
 
-def formImage(full_data, data, lock):
-    idx = data.find(b"|")
-    if idx == -1:
-        return full_data + data
-    else:
-        job = json.loads((full_data + data[:idx]).decode())
-        # print(job["frame"])
-        # job["frame"] = numpy.array(job["frame"])
-        job["frame"] = numpy.array(job["frame"]).astype(numpy.uint8)
-        lock.acquire()
-        job_heap.append(job)
-        lock.release()
-        return data[idx + 1 :]
+def formImage(data, lock):
+    length = 0
+    i = 0
+    f = 0
+    while i < len(data):
+        if data[i] == "%":
+            f = 1
+        elif data[i] == "{":
+            lock.acquire()
+            job_heap.append(json.loads(data[i : i + length]))
+            lock.release()
+            i += length
+            length = 0
+            f = 0
+            continue
+        elif f:
+            length = 10 * length + int(data[i])
+        i += 1
 
 
 def recieveJobs(lock):
@@ -35,9 +40,9 @@ def recieveJobs(lock):
             print("Connected by", addr)
             full_data = b""
             while True:
-                data = conn.recv(4096)
-                # print("came")
-                full_data = formImage(full_data, data, lock)
+                data = conn.recv(1024)
+                # print(data)
+                formImage(data.decode(), lock)
                 if not data:
                     break
             print("done")
@@ -52,11 +57,13 @@ def encodeFaces(lock_job, lock_enc):
             job = job_heap.popleft()
             lock_job.release()
 
-            # print(face_recognition.face_encodings(job["frame"]))
-            frameEncoding = face_recognition.face_encodings(job["frame"])
+            # print(job)
+
+            frameEncoding = face_recognition.face_encodings(
+                cv2.imread(r"temp\\images\\" + job["frame"] + ".png")
+            )
             if frameEncoding == []:
                 continue
-            job["frame"] = job["frame"].tolist()
             job["encoded"] = frameEncoding[0].tolist()
 
             lock_enc.acquire()
@@ -81,7 +88,9 @@ def sendTasks(lock):
                 encodedFrame = encoded.popleft()
                 lock.release()
 
-                s.sendall(json.dumps(encodedFrame).encode() + b"|")
+                data_to_send = json.dumps(encodedFrame)
+                data_to_send = "%" + str(len(data_to_send)) + data_to_send
+                s.send(data_to_send.encode())
                 i += 1
 
 

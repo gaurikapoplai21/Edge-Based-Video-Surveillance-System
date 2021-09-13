@@ -11,7 +11,7 @@ job_heap = deque()
 encodedFrames = []
 
 
-def formImage(full_data, data, lock):
+"""def formImage(full_data, data, lock):
     idx = data.find(b"|")
     if idx == -1:
         return full_data + data
@@ -23,7 +23,29 @@ def formImage(full_data, data, lock):
         lock.acquire()
         job_heap.append(job)
         lock.release()
-        return data[idx + 1 :]
+        return data[idx + 1 :]"""
+
+
+def formImage(data, lock):
+    length = 0
+    i = 0
+    f = 0
+    while i < len(data):
+        if data[i] == "%":
+            f = 1
+        elif data[i] == "{":
+            job = json.loads(data[i : i + length])
+            job["encoded"] = numpy.array(job["encoded"])
+            lock.acquire()
+            job_heap.append(job)
+            lock.release()
+            i += length
+            length = 0
+            f = 0
+            continue
+        elif f:
+            length = 10 * length + int(data[i])
+        i += 1
 
 
 def recieveJobs(lock):
@@ -38,7 +60,8 @@ def recieveJobs(lock):
             full_data = b""
             while True:
                 data = conn.recv(4096)
-                full_data = formImage(full_data, data, lock)
+                # print(data)
+                formImage(data.decode(), lock)
                 if not data:
                     break
             print("done")
@@ -82,8 +105,10 @@ def locateAndSend(lock):
             frame = job["frame"]
             encoded = job["encoded"]
             if label == "Mask" or logic(encoded):
-                cv2.imwrite(dir_ + str(i) + ".png", frame)
+                cv2.imwrite(dir_ + frame + ".png", frame)
                 dbOb.saveImageDb(frame, 0)
+
+            print(job)
 
             i += 1
 

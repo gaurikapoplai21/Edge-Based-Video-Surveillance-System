@@ -15,6 +15,7 @@ from multiprocessing.pool import ThreadPool as Pool
 import subprocess
 import json
 import boto3
+from tensorflow.python.keras.backend import GraphExecutionFunction
 
 print("MobileNet Algorithm started")
 print("_" * 100)
@@ -188,7 +189,7 @@ if __name__ == "__main__":
         if frame is None:
             break
 
-        if i % 5 == 0:
+        if i % 1 == 0:
             # detect faces in the frame and determine if they are wearing a
             # face mask or not
             (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
@@ -225,11 +226,18 @@ if __name__ == "__main__":
                 #     "frame": cv2.cvtColor(only_face_color, cv2.COLOR_BGR2GRAY).tolist(),
                 # }
                 # Color:
-                data_to_send = {
-                    "label": label,
-                    "frame": only_face_color.tolist(),
-                }
-                socket_conn.sendall(json.dumps(data_to_send).encode() + b"|")
+                cv2.imwrite(
+                    grandparentDir + r"\\temp\\images\\" + str(i) + ".png",
+                    only_face_color,
+                )
+                data_to_send = json.dumps(
+                    {
+                        "label": label,
+                        "frame": str(i),
+                    }
+                )
+                data_to_send = "%" + str(len(data_to_send)) + data_to_send
+                socket_conn.send(data_to_send.encode())
                 # args = [fcOb, dbOb, picname, label, permission, only_face_color]
                 # saveFrameThread(*args)
 

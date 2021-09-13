@@ -8,19 +8,24 @@ from threading import Thread, Lock
 job_heap = deque()
 
 
-def formImage(full_data, data, lock):
-    idx = data.find(b"|")
-    if idx == -1:
-        return full_data + data
-    else:
-        job = full_data + data[:idx]
-        # job = json.loads((full_data + data[:idx]).decode())
-        # job["frame"] = numpy.array(job["frame"])
-
-        lock.acquire()
-        job_heap.append(job)
-        lock.release()
-        return data[idx + 1 :]
+"""def formImage(data, lock):
+    length = 0
+    i = 0
+    f = 0
+    while i < len(data):
+        if data[i] == "%":
+            f = 1
+        elif data[i] == "{":
+            lock.acquire()
+            job_heap.append(json.loads(data[i : i + length]))
+            lock.release()
+            i += length
+            length = 0
+            f = 0
+            continue
+        elif f:
+            length = 10 * length + int(data[i])
+        i += 1"""
 
 
 def recieveJobs(lock):
@@ -32,10 +37,12 @@ def recieveJobs(lock):
         conn, addr = s.accept()
         with conn:
             print("Connected by", addr)
-            full_data = b""
             while True:
-                data = conn.recv(4096)
-                full_data = formImage(full_data, data, lock)
+                data = conn.recv(1024)
+                # print(data)
+                lock.acquire()
+                job_heap.append(data)
+                lock.release()
                 if not data:
                     break
             print("done")
@@ -62,7 +69,8 @@ def sendTasks(lock):
                 #         cv2.COLOR_BGR2GRAY,
                 #     ),
                 # )
-                s.sendall(job + b"|")
+
+                s.send(job)
                 i += 1
 
 
