@@ -187,7 +187,7 @@ if __name__ == "__main__":
         if frame is None:
             break
 
-        if i % 1 == 0:
+        if i % 5 == 0:
             # detect faces in the frame and determine if they are wearing a
             # face mask or not
             (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
@@ -225,7 +225,7 @@ if __name__ == "__main__":
                 # }
                 # Color:
                 cv2.imwrite(
-                    grandparentDir + r"\\temp\\images\\" + str(i) + ".png",
+                    grandparentDir + r"\\temp\\" + str(i) + ".png",
                     only_face_color,
                 )
                 data_to_send = json.dumps(

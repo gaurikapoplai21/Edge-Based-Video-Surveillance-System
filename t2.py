@@ -61,7 +61,7 @@ def encodeFaces(lock_job, lock_enc):
             print(job)
 
             frameEncoding = face_recognition.face_encodings(
-                cv2.imread(r"temp\\images\\" + job["frame"] + ".png")
+                cv2.imread(r"temp\\" + job["frame"] + ".png")
             )
             if frameEncoding == []:
                 continue
