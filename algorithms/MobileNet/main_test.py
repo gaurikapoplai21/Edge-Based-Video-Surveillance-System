@@ -17,6 +17,8 @@ import json
 import boto3
 from tensorflow.python.keras.backend import GraphExecutionFunction
 import socket
+from collections import deque
+from threading import Thread, Lock
 
 print("MobileNet Algorithm started")
 print("_" * 100)
@@ -118,7 +120,7 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
     return (locs, preds)
 
 
-def outputDecorator(label):
+"""def outputDecorator(label):
     # include the probability in the label
     label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
 
@@ -133,7 +135,7 @@ def outputDecorator(label):
         color,
         2,
     )
-    cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
+    cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)"""
 
 
 def saveFrameThread(fcOb, dbOb, picname, label, permission, frame):
@@ -146,6 +148,107 @@ def saveFrameThread(fcOb, dbOb, picname, label, permission, frame):
         else:
             print("db 1")
             dbOb.saveImageDb(frame, 1)
+
+
+def faceDetectionLogic(lock):
+    global frame_heap, frame_number
+    while 1:
+        if frame_heap:
+            lock.acquire()
+            frame = frame_heap.popleft()
+            frame_number += 1
+            lock.release()
+
+            if frame is None:
+                continue
+
+            # detect faces in the frame and determine if they are wearing a
+            # face mask or not
+            (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
+
+            # loop over the detected face locations and their corresponding
+            # locations
+            for (box, pred) in zip(locs, preds):
+                # unpack the bounding box and predictions
+                (startX, startY, endX, endY) = box
+                (mask, withoutMask) = pred
+
+                # determine the class label and color we'll use to draw
+                # the bounding box and text
+                label = "Mask" if mask > withoutMask else "No Mask"
+                # color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
+                expansion = 10
+                only_face_color = frame[
+                    startY - expansion : endY + expansion,
+                    startX - expansion : endX + expansion,
+                ]
+                """if label == "No Mask":
+                    picname = output_path + r"nmsk\\" + str(i) + ".png"
+                    # thread here
+                    # GIL - Global Interpreter Lock - One thread at a time
+                    # Can't use threads
+                    permission = False
+                else:
+                    picname = output_path + "mmsk\\" + str(i) + ".png"
+                    permission = True
+
+                # Gray:
+                # data_to_send = {
+                #     "label": label,
+                #     "frame": cv2.cvtColor(only_face_color, cv2.COLOR_BGR2GRAY).tolist(),
+                # }"""
+
+                # Color:
+                cv2.imwrite(
+                    grandparentDir + r"\\temp\\" + str(frame_number) + ".png",
+                    only_face_color,
+                )
+                data_to_send = json.dumps(
+                    {
+                        "label": label,
+                        "frame": str(frame_number),
+                    }
+                )
+                data_to_send = "%" + str(len(data_to_send)) + data_to_send
+                socket_conn.send(data_to_send.encode())
+
+
+def getInputStream(lock):
+    i = 0
+    # loop over the frames from the video stream
+    while True:
+        # grab the frame from the threaded video stream and resize it
+        # to have a maximum width of 400 pixels
+        # frame = vs.read()
+        ret, frame = cap.read()
+        # print(i)
+
+        # Terminate if frame is None
+        if frame is None:
+            break
+
+        if i % 1 == 0:
+            # Frame
+            lock.acquire()
+            frame_heap.append(frame)
+            cv2.imshow("Frame", frame)
+            lock.release()
+
+        i += 1
+
+        # outputDecorator(label)
+        # show the output frame
+        key = cv2.waitKey(1) & 0xFF
+
+        # if the `q` key was pressed, break from the loop
+        if key == ord("q"):
+            break
+
+    # do a bit of cleanup
+    cv2.destroyAllWindows()
+    # cap.stop()
+
+    print("Finished!!!")
 
 
 if __name__ == "__main__":
@@ -169,87 +272,23 @@ if __name__ == "__main__":
     # cap = VideoStream(src=0).start()
     cap = cv2.VideoCapture(grandparentDir + r"\mmsk.mp4")
     output_path = grandparentDir + r"\output\\"
-    fcOb = faceClustering()
-    dbOb = Database()
     socket_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     socket_conn.connect((HOST, PORT))
 
-    i = 0
-    # loop over the frames from the video stream
-    while True:
-        # grab the frame from the threaded video stream and resize it
-        # to have a maximum width of 400 pixels
-        # frame = vs.read()
-        ret, frame = cap.read()
-        # print(i)
+    lock = Lock()
+    # Frame Collection -> Shared by both threads
+    frame_heap = deque()
+    frame_number = 0
 
-        # Terminate if frame is None
-        if frame is None:
-            break
-
-        if i % 1 == 0:
-            # detect faces in the frame and determine if they are wearing a
-            # face mask or not
-            (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
-
-            # loop over the detected face locations and their corresponding
-            # locations
-            for (box, pred) in zip(locs, preds):
-                # unpack the bounding box and predictions
-                (startX, startY, endX, endY) = box
-                (mask, withoutMask) = pred
-
-                # determine the class label and color we'll use to draw
-                # the bounding box and text
-                label = "Mask" if mask > withoutMask else "No Mask"
-                color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
-                expansion = 10
-                only_face_color = frame[
-                    startY - expansion : endY + expansion,
-                    startX - expansion : endX + expansion,
-                ]
-                if label == "No Mask":
-                    picname = output_path + r"nmsk\\" + str(i) + ".png"
-                    # thread here
-                    # GIL - Global Interpreter Lock - One thread at a time
-                    # Can't use threads
-                    permission = False
-                else:
-                    picname = output_path + "mmsk\\" + str(i) + ".png"
-                    permission = True
-
-                # Gray:
-                # data_to_send = {
-                #     "label": label,
-                #     "frame": cv2.cvtColor(only_face_color, cv2.COLOR_BGR2GRAY).tolist(),
-                # }
-                # Color:
-                cv2.imwrite(
-                    grandparentDir + r"\\temp\\" + str(i) + ".png",
-                    only_face_color,
-                )
-                data_to_send = json.dumps(
-                    {
-                        "label": label,
-                        "frame": str(i),
-                    }
-                )
-                data_to_send = "%" + str(len(data_to_send)) + data_to_send
-                socket_conn.send(data_to_send.encode())
-                # args = [fcOb, dbOb, picname, label, permission, only_face_color]
-                # saveFrameThread(*args)
-
-        i += 1
-
-        # outputDecorator(label)
-        # show the output frame
-        cv2.imshow("Frame", frame)
-        key = cv2.waitKey(1) & 0xFF
-
-        # if the `q` key was pressed, break from the loop
-        if key == ord("q"):
-            break
-
-    # do a bit of cleanup
-    cv2.destroyAllWindows()
-    # cap.stop()
+    task1 = Thread(target=getInputStream, args=(lock,))
+    task2 = Thread(target=faceDetectionLogic, args=(lock,))
+    # task3 = Thread(target=faceDetectionLogic, args=(lock,))
+    # task4 = Thread(target=faceDetectionLogic, args=(lock,))
+    task1.start()
+    task2.start()
+    # task3.start()
+    # task4.start()
+    task1.join()
+    task2.join()
+    # task3.join()
+    # task4.join()
