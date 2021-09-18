@@ -3,6 +3,7 @@ import socket
 from collections import deque
 from threading import Thread, Lock
 import random
+import sys
 
 # Global Job heap
 job_heap = deque()
@@ -11,7 +12,7 @@ conf = None
 
 def recieveJobs(lock):
     HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
-    PORT = 5000  # Port to listen on (non-privileged ports are > 1023)
+    PORT = int(sys.argv[1])  # Port to listen on (non-privileged ports are > 1023)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
         s.listen()

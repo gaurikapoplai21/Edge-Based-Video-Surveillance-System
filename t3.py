@@ -76,7 +76,8 @@ def logic(encoded):
 def locateAndSend(lock):
     i = 0
     dbOb = Database()
-    dir_ = "output\\nmsk\\"
+    dir_output = "output\\nmsk\\"
+    dir_input = "temp\\"
     while 1:
         if job_heap:
             # print("Writing..." + str(i))
@@ -86,13 +87,13 @@ def locateAndSend(lock):
             lock.release()
 
             label = job["label"]
-            # print(label)
             frame = job["frame"]
             encoded = job["encoded"]
-            if label == "Mask" or logic(encoded):
+            # print(label)
+            if label == 1 or logic(encoded):
                 print(frame)
-                # cv2.imwrite(dir_ + frame + ".png", frame)
-                # dbOb.saveImageDb(frame, 0)
+                # cv2.imwrite(dir_output + frame + ".png", frame)
+                dbOb.saveImageDb(cv2.imread(dir_input + frame + ".png"), label)
 
             # print(job)
 

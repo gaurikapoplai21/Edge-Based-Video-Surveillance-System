@@ -120,7 +120,8 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
     return (locs, preds)
 
 
-"""def outputDecorator(label):
+"""
+def outputDecorator(label):
     # include the probability in the label
     label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
 
@@ -135,7 +136,7 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
         color,
         2,
     )
-    cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)"""
+    cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 
 
 def saveFrameThread(fcOb, dbOb, picname, label, permission, frame):
@@ -148,6 +149,7 @@ def saveFrameThread(fcOb, dbOb, picname, label, permission, frame):
         else:
             print("db 1")
             dbOb.saveImageDb(frame, 1)
+"""
 
 
 def faceDetectionLogic(lock):
@@ -203,9 +205,12 @@ def faceDetectionLogic(lock):
                     grandparentDir + r"\\temp\\" + str(frame_number) + ".png",
                     only_face_color,
                 )
+
+                label01 = 1 if label == "Mask" else 0
+
                 data_to_send = json.dumps(
                     {
-                        "label": label,
+                        "label": label01,
                         "frame": str(frame_number),
                     }
                 )
@@ -254,7 +259,7 @@ def getInputStream(lock):
 if __name__ == "__main__":
     dir_ = getParentDirectory(0)
     HOST = "127.0.0.1"  # The server's hostname or IP address
-    PORT = 5000  # The port used by the server
+    PORT = 5001  # The port used by the server
 
     # load our serialized face detector model from disk
     prototxtPath = dir_ + r"\face_detector\deploy.prototxt"

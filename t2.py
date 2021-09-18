@@ -39,7 +39,6 @@ def recieveJobs(lock):
         conn, addr = s.accept()
         with conn:
             print("Connected by", addr)
-            full_data = b""
             while True:
                 data = conn.recv(1024)
                 # print(data)
@@ -60,13 +59,17 @@ def encodeFaces(lock_job, lock_enc):
 
             print(job)
 
-            frameEncoding = face_recognition.face_encodings(
-                cv2.imread(r"temp\\" + job["frame"] + ".png")
-            )
-            # Frames -> Mask (Pass)
-            if frameEncoding == []:
-                continue
-            job["encoded"] = frameEncoding[0].tolist()
+            if job["label"] == 0:
+                frameEncoding = face_recognition.face_encodings(
+                    cv2.imread(r"temp\\" + job["frame"] + ".png")
+                )
+                # Frames -> Mask (Pass)
+                if frameEncoding == []:
+                    continue
+                job["encoded"] = frameEncoding[0].tolist()
+            else:
+                print("MASK")
+                job["encoded"] = []
 
             lock_enc.acquire()
             encoded.append(job)
