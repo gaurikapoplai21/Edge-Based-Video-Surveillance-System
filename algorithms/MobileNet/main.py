@@ -151,7 +151,7 @@ def saveFrameThread(fcOb, dbOb, picname, label, permission, frame):
 if __name__ == "__main__":
     dir_ = getParentDirectory(0)
     HOST = "127.0.0.1"  # The server's hostname or IP address
-    PORT = 5000  # The port used by the server
+    PORT = 5001  # The port used by the server
 
     # load our serialized face detector model from disk
     prototxtPath = dir_ + r"\face_detector\deploy.prototxt"
@@ -208,7 +208,7 @@ if __name__ == "__main__":
                     startY - expansion : endY + expansion,
                     startX - expansion : endX + expansion,
                 ]
-                if label == "No Mask":
+                """if label == "No Mask":
                     picname = output_path + r"nmsk\\" + str(i) + ".png"
                     # thread here
                     # GIL - Global Interpreter Lock - One thread at a time
@@ -216,7 +216,7 @@ if __name__ == "__main__":
                     permission = False
                 else:
                     picname = output_path + "mmsk\\" + str(i) + ".png"
-                    permission = True
+                    permission = True"""
 
                 # Gray:
                 # data_to_send = {
@@ -228,9 +228,12 @@ if __name__ == "__main__":
                     grandparentDir + r"\\temp\\" + str(i) + ".png",
                     only_face_color,
                 )
+
+                label01 = 1 if label == "Mask" else 0
+
                 data_to_send = json.dumps(
                     {
-                        "label": label,
+                        "label": label01,
                         "frame": str(i),
                     }
                 )

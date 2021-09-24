@@ -1,16 +1,9 @@
-from concurrent.futures.thread import ThreadPoolExecutor
-from multiprocessing.pool import ThreadPool
-import threading
 from flask import Flask, render_template, request, redirect, url_for
 import sqlite3
 import os
 import base64
 import cv2
-import asyncio
-
-from tensorflow.python.keras.applications.mobilenet_v2 import MobileNetV2
 from database import *
-import subprocess, time
 
 
 # def create_table(sql):

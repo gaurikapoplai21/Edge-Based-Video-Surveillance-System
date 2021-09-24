@@ -6,10 +6,14 @@ from threading import Thread, Lock
 import face_recognition
 from database import *
 import sys
+import base64
+import requests
+import boto3
 
 # Global Job heap
 job_heap = deque()
 encodedFrames = []
+sendFrames = deque()
 
 
 def formatData(data, lock):
@@ -73,7 +77,32 @@ def logic(encoded):
     return False
 
 
-def locateAndSend(lock):
+def uploadOnAws(lock):
+    k = 0
+    while 1:
+        if sendFrames:
+
+            lock.acquire()
+            k += 1
+            picname = sendFrames.popleft()
+            lock.release()
+
+            print("Picname : " + picname)
+
+            with open(picname, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read())
+
+            response = requests.post(
+                "https://w1vz8j0cqk.execute-api.us-east-1.amazonaws.com/prod/demo-lambda",
+                json={
+                    "name": "dumped/" + str(k) + ".png",
+                    "file": encoded_string.decode(),
+                },
+            )
+            print(response.json())
+
+
+def locateAndSend(lock_j, lock_s):
     i = 0
     dbOb = Database()
     dir_output = "output\\nmsk\\"
@@ -82,9 +111,9 @@ def locateAndSend(lock):
         if job_heap:
             # print("Writing..." + str(i))
 
-            lock.acquire()
+            lock_j.acquire()
             job = job_heap.popleft()
-            lock.release()
+            lock_j.release()
 
             label = job["label"]
             frame = job["frame"]
@@ -94,6 +123,10 @@ def locateAndSend(lock):
                 print(frame)
                 # cv2.imwrite(dir_output + frame + ".png", frame)
                 dbOb.saveImageDb(cv2.imread(dir_input + frame + ".png"), label)
+                if label == 0:
+                    lock_s.acquire()
+                    sendFrames.append(dir_input + frame + ".png")
+                    lock_s.release()
 
             # print(job)
 
@@ -101,10 +134,14 @@ def locateAndSend(lock):
 
 
 if __name__ == "__main__":
-    lock = Lock()
-    task1 = Thread(target=recieveJobs, args=(lock,))
-    task2 = Thread(target=locateAndSend, args=(lock,))
+    lock_j = Lock()
+    lock_s = Lock()
+    task1 = Thread(target=recieveJobs, args=(lock_j,))
+    task2 = Thread(target=locateAndSend, args=(lock_j, lock_s))
+    task3 = Thread(target=uploadOnAws, args=(lock_s,))
     task1.start()
     task2.start()
+    task3.start()
     task1.join()
     task2.join()
+    task3.join()
