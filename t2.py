@@ -39,7 +39,7 @@ def recieveJobs(lock):
         s.listen()
         conn, addr = s.accept()
         with conn:
-            print("Connected by", addr)
+            print("t2 Connected by", addr)
             while True:
                 data = conn.recv(1024)
                 # print(data)

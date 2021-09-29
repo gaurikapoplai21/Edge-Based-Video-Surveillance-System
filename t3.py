@@ -51,12 +51,14 @@ def recieveJobs(conn, lock):
 def multipleClients(lock):
     HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
     PORT = int(sys.argv[1])  # Port to listen on (non-privileged ports are > 1023)
+    confFile = open("conf.json", "r")
+    conf = json.load(confFile)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
-        s.listen(3)
+        s.listen(len(conf))
         while 1:
             conn, addr = s.accept()
-            print("Connected by", addr)
+            print("t3 Connected by", addr)
             t = Thread(
                 target=recieveJobs,
                 args=(
