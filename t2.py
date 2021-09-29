@@ -3,11 +3,12 @@ import socket
 from collections import deque
 from threading import Thread, Lock
 import face_recognition
-import sys
+import sys, os
 
 # Global Job heap
 job_heap = deque()
 encoded = deque()
+MODEL = "cnn"
 
 
 def formatData(data, lock):
@@ -61,10 +62,15 @@ def encodeFaces(lock_job, lock_enc):
 
             if job["label"] == 0:
                 frameEncoding = face_recognition.face_encodings(
-                    cv2.imread(r"temp\\" + job["frame"] + ".png")
+                    cv2.imread(r"temp\\" + job["frame"] + ".png"), model=MODEL
                 )
                 # Frames -> Mask (Pass)
                 if frameEncoding == []:
+                    try:
+                        # print("Deleting...", job["frame"])
+                        os.remove(r"temp\\" + job["frame"] + ".png")
+                    except:
+                        print("Failed to delete :", r"temp\\" + job["frame"] + ".png")
                     continue
                 job["encoded"] = frameEncoding[0].tolist()
             else:
@@ -96,6 +102,7 @@ def sendTasks(lock):
                 data_to_send = json.dumps(encodedFrame)
                 data_to_send = "%" + str(len(data_to_send)) + data_to_send
                 s.send(data_to_send.encode())
+
                 i += 1
 
 

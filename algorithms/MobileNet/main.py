@@ -38,17 +38,17 @@ def uploadOnAws(picname):
 
 
 def getParentDirectory(levels):
-    cur = os.path.dirname(__file__)
+    cur = os.path.dirname(os.path.abspath(__file__))
     for _ in range(0, levels):
-        cur = os.path.dirname(cur)
+        cur = os.path.dirname(os.path.abspath(cur))
     return os.path.realpath(cur)
 
 
 grandparentDir = getParentDirectory(2)
 sys.path.append(grandparentDir)
 
-from database import Database
-from faceClustering import *
+# from database import Database
+# from faceClustering import *
 
 
 def detect_and_predict_mask(frame, faceNet, maskNet):
@@ -169,8 +169,8 @@ if __name__ == "__main__":
     # cap = VideoStream(src=0).start()
     cap = cv2.VideoCapture(grandparentDir + r"\mmsk.mp4")
     output_path = grandparentDir + r"\output\\"
-    fcOb = faceClustering()
-    dbOb = Database()
+    # fcOb = faceClustering()
+    # dbOb = Database()
     socket_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     socket_conn.connect((HOST, PORT))
 

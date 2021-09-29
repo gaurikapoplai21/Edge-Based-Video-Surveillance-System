@@ -5,7 +5,7 @@ from collections import deque
 from threading import Thread, Lock
 import face_recognition
 from database import *
-import sys
+import sys, os
 import base64
 import requests
 import boto3
@@ -28,6 +28,7 @@ def formatData(data, lock):
             job["encoded"] = numpy.array(job["encoded"])
             lock.acquire()
             job_heap.append(job)
+            print("Recieved: ", job_heap[-1]["frame"])
             lock.release()
             i += length
             length = 0
@@ -38,21 +39,32 @@ def formatData(data, lock):
         i += 1
 
 
-def recieveJobs(lock):
+def recieveJobs(conn, lock):
+    while True:
+        data = conn.recv(4096)
+        # print(data)
+        formatData(data.decode(), lock)
+        if not data:
+            break
+
+
+def multipleClients(lock):
     HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
     PORT = int(sys.argv[1])  # Port to listen on (non-privileged ports are > 1023)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
-        s.listen()
-        conn, addr = s.accept()
-        with conn:
+        s.listen(3)
+        while 1:
+            conn, addr = s.accept()
             print("Connected by", addr)
-            while True:
-                data = conn.recv(4096)
-                # print(data)
-                formatData(data.decode(), lock)
-                if not data:
-                    break
+            t = Thread(
+                target=recieveJobs,
+                args=(
+                    conn,
+                    lock,
+                ),
+            )
+            t.start()
             print("done")
 
 
@@ -99,13 +111,18 @@ def uploadOnAws(lock):
                     "file": encoded_string.decode(),
                 },
             )
+
+            try:
+                os.remove(picname)
+            except:
+                print("Failed to delete :", picname)
+
             print(response.json())
 
 
 def locateAndSend(lock_j, lock_s):
     i = 0
     dbOb = Database()
-    dir_output = "output\\nmsk\\"
     dir_input = "temp\\"
     while 1:
         if job_heap:
@@ -118,15 +135,22 @@ def locateAndSend(lock_j, lock_s):
             label = job["label"]
             frame = job["frame"]
             encoded = job["encoded"]
-            # print(label)
+
+            uploading = 0
             if label == 1 or logic(encoded):
                 print(frame)
-                # cv2.imwrite(dir_output + frame + ".png", frame)
                 dbOb.saveImageDb(cv2.imread(dir_input + frame + ".png"), label)
                 if label == 0:
                     lock_s.acquire()
+                    uploading = 1
                     sendFrames.append(dir_input + frame + ".png")
                     lock_s.release()
+
+            if not uploading:
+                try:
+                    os.remove(dir_input + frame + ".png")
+                except:
+                    print("Failed to delete :", dir_input + frame + ".png")
 
             # print(job)
 
@@ -136,7 +160,7 @@ def locateAndSend(lock_j, lock_s):
 if __name__ == "__main__":
     lock_j = Lock()
     lock_s = Lock()
-    task1 = Thread(target=recieveJobs, args=(lock_j,))
+    task1 = Thread(target=multipleClients, args=(lock_j,))
     task2 = Thread(target=locateAndSend, args=(lock_j, lock_s))
     task3 = Thread(target=uploadOnAws, args=(lock_s,))
     task1.start()
