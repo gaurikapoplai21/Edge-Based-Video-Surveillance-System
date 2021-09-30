@@ -3,6 +3,7 @@ import sqlite3
 import os
 import base64
 import cv2
+import subprocess
 
 from database import *
 
@@ -49,33 +50,26 @@ def downloadAlgo():
 
 
 algoProcess = None
+process = None
 
 
-def runAlgo():
-    # cmd1 = "python ./algorithms/" + AlgoName + "/main.py"
+def start():
+    global process
 
-    cmd2 = "run.cmd"
     # Normal Execution
-    os.system(cmd2)
+    # cmd = "run.cmd"
+    # os.system(cmd)
 
-    # SubProcess
-    # algoProcess = subprocess.Popen(
-    #     ["python ", "./algorithms/" + AlgoName + "/main.py"],
-    #     close_fds=True,
-    # )
+    cmd = {"args": ["run.cmd"], "close_fds": True}
+    process = subprocess.Popen(**cmd)
 
-    # algoProcess = subprocess.Popen(
-    #     ["python ", "./algorithms/" + AlgoName + "/main.py"],
-    #     close_fds=True,
-    # )
 
-    # Threading
-    # t = threading.Thread(target=os.system(cmd))
-    # t.start()
-    # t.join()
+def stop():
+    # if process is None:
+    #     return
+    # process.terminate()
 
-    # exe = ThreadPoolExecutor(2)
-    # exe.submit(os.system(cmd))
+    pass
 
 
 def getAllAlgo():
@@ -132,17 +126,18 @@ def index():
             "./index.html", algoDetails=algoDetails, images=imgs, algoSeleted=AlgoName
         )
     else:
-        if request.form.get("run"):
-            # asyncio.run(runAlgo())
-            runAlgo()
+        if request.form.get("start"):
+            start()
+            return redirect(url_for("index"))
+        elif request.form.get("stop"):
+            stop()
             return redirect(url_for("index"))
         else:
             for algo in algoDetails:
                 if request.form.get(str(algo[0])):
-                    # print("here")
                     AlgoName = algo[1]
                     downloadAlgo()
-            print(AlgoName)
+            print("RUNNING [INFO] :", AlgoName)
             return render_template(
                 "./index.html",
                 algoDetails=algoDetails,

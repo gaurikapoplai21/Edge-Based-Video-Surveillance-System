@@ -255,7 +255,6 @@ if __name__ == "__main__":
             break
 
     # do a bit of cleanup
-    socket_conn.shutdown(2)
-    socket_conn.close()
+    socket_conn.shutdown(1)
     cv2.destroyAllWindows()
     # cap.stop()
