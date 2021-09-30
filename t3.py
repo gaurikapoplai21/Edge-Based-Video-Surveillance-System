@@ -1,5 +1,4 @@
 import cv2, json, numpy
-from face_recognition.api import face_locations
 import socket
 from collections import deque
 from threading import Thread, Lock
@@ -8,7 +7,6 @@ from database import *
 import sys, os
 import base64
 import requests
-import boto3
 
 # Global Job heap
 job_heap = deque()
@@ -26,10 +24,12 @@ def formatData(data, lock):
         elif data[i] == "{":
             job = json.loads(data[i : i + length])
             job["encoded"] = numpy.array(job["encoded"])
+
             lock.acquire()
             job_heap.append(job)
             print("Recieved: ", job_heap[-1]["frame"])
             lock.release()
+
             i += length
             length = 0
             f = 0
@@ -39,24 +39,31 @@ def formatData(data, lock):
         i += 1
 
 
+# Thread n - Workers Incoming
 def recieveJobs(conn, lock):
     while True:
         data = conn.recv(4096)
         # print(data)
-        formatData(data.decode(), lock)
         if not data:
+            lock.acquire()
+            job_heap.append("")
+            lock.release()
             break
+        formatData(data.decode(), lock)
+    print("done")
 
 
+# Thread 1 - Incoming
 def multipleClients(lock):
     HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
     PORT = int(sys.argv[1])  # Port to listen on (non-privileged ports are > 1023)
-    confFile = open("conf.json", "r")
-    conf = json.load(confFile)
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
-        s.listen(len(conf))
-        while 1:
+        s.listen(num_conn)
+
+        temp = num_conn
+        while temp:
             conn, addr = s.accept()
             print("t3 Connected by", addr)
             t = Thread(
@@ -67,7 +74,8 @@ def multipleClients(lock):
                 ),
             )
             t.start()
-            print("done")
+            temp = temp - 1
+        print("end")
 
 
 def checkUnique(res):
@@ -91,6 +99,52 @@ def logic(encoded):
     return False
 
 
+# Thread 2 - Face Location
+def locateAndSend(lock_j, lock_s):
+    i = 0
+    dbOb = Database()
+    dir_input = "temp\\"
+    count_empty = 0
+    while 1:
+        if job_heap:
+
+            lock_j.acquire()
+            job = job_heap.popleft()
+            lock_j.release()
+
+            if not job:
+                count_empty += 1
+                if count_empty == num_conn:
+                    lock_s.acquire()
+                    sendFrames.append("")
+                    lock_s.release()
+                    break
+                continue
+
+            label = job["label"]
+            frame = job["frame"]
+            encoded = job["encoded"]
+
+            uploading = 0
+            if label == 1 or logic(encoded):
+                print(frame)
+                dbOb.saveImageDb(cv2.imread(dir_input + frame + ".png"), label)
+                if label == 0:
+                    lock_s.acquire()
+                    uploading = 1
+                    sendFrames.append(dir_input + frame + ".png")
+                    lock_s.release()
+
+            if not uploading:
+                try:
+                    os.remove(dir_input + frame + ".png")
+                except:
+                    print("Failed to delete :", dir_input + frame + ".png")
+
+            i += 1
+
+
+# Thread 3 - Uploading to Cloud
 def uploadOnAws(lock):
     k = 0
     while 1:
@@ -100,6 +154,9 @@ def uploadOnAws(lock):
             k += 1
             picname = sendFrames.popleft()
             lock.release()
+
+            if not picname:
+                break
 
             print("Picname : " + picname)
 
@@ -122,44 +179,10 @@ def uploadOnAws(lock):
             print(response.json())
 
 
-def locateAndSend(lock_j, lock_s):
-    i = 0
-    dbOb = Database()
-    dir_input = "temp\\"
-    while 1:
-        if job_heap:
-            # print("Writing..." + str(i))
-
-            lock_j.acquire()
-            job = job_heap.popleft()
-            lock_j.release()
-
-            label = job["label"]
-            frame = job["frame"]
-            encoded = job["encoded"]
-
-            uploading = 0
-            if label == 1 or logic(encoded):
-                print(frame)
-                dbOb.saveImageDb(cv2.imread(dir_input + frame + ".png"), label)
-                if label == 0:
-                    lock_s.acquire()
-                    uploading = 1
-                    sendFrames.append(dir_input + frame + ".png")
-                    lock_s.release()
-
-            if not uploading:
-                try:
-                    os.remove(dir_input + frame + ".png")
-                except:
-                    print("Failed to delete :", dir_input + frame + ".png")
-
-            # print(job)
-
-            i += 1
-
-
 if __name__ == "__main__":
+    confFile = open("conf.json", "r")
+    conf = json.load(confFile)
+    num_conn = len(conf["workers"])
     lock_j = Lock()
     lock_s = Lock()
     task1 = Thread(target=multipleClients, args=(lock_j,))

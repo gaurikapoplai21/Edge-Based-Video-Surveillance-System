@@ -181,6 +181,7 @@ if __name__ == "__main__":
         # to have a maximum width of 400 pixels
         # frame = vs.read()
         ret, frame = cap.read()
+        # frame = imutils.resize(frame, width=400)
         # print(i)
 
         # Terminate if frame is None
@@ -254,5 +255,7 @@ if __name__ == "__main__":
             break
 
     # do a bit of cleanup
+    socket_conn.shutdown(2)
+    socket_conn.close()
     cv2.destroyAllWindows()
     # cap.stop()

@@ -52,7 +52,8 @@ algoProcess = None
 
 
 def runAlgo():
-    cmd1 = "python ./algorithms/" + AlgoName + "/main.py"
+    # cmd1 = "python ./algorithms/" + AlgoName + "/main.py"
+
     cmd2 = "run.cmd"
     # Normal Execution
     os.system(cmd2)

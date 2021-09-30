@@ -31,6 +31,7 @@ def formatData(data, lock):
         i += 1
 
 
+# Thread 1 - Incoming
 def recieveJobs(lock):
     HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
     PORT = int(sys.argv[1])  # Port to listen on (non-privileged ports are > 1023)
@@ -39,26 +40,34 @@ def recieveJobs(lock):
         s.listen()
         conn, addr = s.accept()
         with conn:
-            print("t2 Connected by", addr)
+            print("T2 Connected by", addr)
             while True:
                 data = conn.recv(1024)
-                # print(data)
-                formatData(data.decode(), lock)
                 if not data:
+                    lock.acquire()
+                    job_heap.append("")
+                    lock.release()
                     break
+                formatData(data.decode(), lock)
             print("done")
 
 
+# Thread 2 - Processing
 def encodeFaces(lock_job, lock_enc):
     i = 0
     while 1:
         if job_heap:
-            print("Encoding..." + str(i))
+
             lock_job.acquire()
             job = job_heap.popleft()
             lock_job.release()
 
             print(job)
+            if not job:
+                lock_enc.acquire()
+                encoded.append("")
+                lock_enc.release()
+                break
 
             if job["label"] == 0:
                 frameEncoding = face_recognition.face_encodings(
@@ -67,14 +76,12 @@ def encodeFaces(lock_job, lock_enc):
                 # Frames -> Mask (Pass)
                 if frameEncoding == []:
                     try:
-                        # print("Deleting...", job["frame"])
                         os.remove(r"temp\\" + job["frame"] + ".png")
                     except:
                         print("Failed to delete :", r"temp\\" + job["frame"] + ".png")
                     continue
                 job["encoded"] = frameEncoding[0].tolist()
             else:
-                print("MASK")
                 job["encoded"] = []
 
             lock_enc.acquire()
@@ -84,6 +91,7 @@ def encodeFaces(lock_job, lock_enc):
             i += 1
 
 
+# Thread 3 - Outgoing
 def sendTasks(lock):
     HOST = "127.0.0.1"  # The server's hostname or IP address
     PORT = int(sys.argv[2])  # The port used by the server
@@ -92,18 +100,20 @@ def sendTasks(lock):
         s.connect((HOST, PORT))
         while 1:
             if encoded:
-
-                print("Sending..." + str(i))
-
                 lock.acquire()
                 encodedFrame = encoded.popleft()
                 lock.release()
+
+                if not encodedFrame:
+                    break
 
                 data_to_send = json.dumps(encodedFrame)
                 data_to_send = "%" + str(len(data_to_send)) + data_to_send
                 s.send(data_to_send.encode())
 
                 i += 1
+        s.shutdown(1)
+        # s.close()
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ import sys
 job_heap = deque()
 conf = None
 
-
+# Thread 1 - Incoming
 def recieveJobs(lock):
     HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
     PORT = int(sys.argv[1])  # Port to listen on (non-privileged ports are > 1023)
@@ -18,18 +18,22 @@ def recieveJobs(lock):
         s.listen()
         conn, addr = s.accept()
         with conn:
-            print("Connected by", addr)
+            print("t1 Connected by", addr)
             while True:
                 data = conn.recv(1024)
+                print(data)
                 # print(data)
+
                 lock.acquire()
                 job_heap.append(data)
                 lock.release()
+
                 if not data:
                     break
             print("done")
 
 
+# Thread 2 - Outgoing
 def sendTasks(lock):
     HOST = "127.0.0.1"  # The server's hostname or IP address
     i = 0
@@ -41,23 +45,22 @@ def sendTasks(lock):
 
     while 1:
         if job_heap:
-            print("Writing..." + str(i))
+
             lock.acquire()
             job = job_heap.popleft()
             lock.release()
 
-            # Write:
-            # cv2.imwrite(
-            #     "output/nmsk/" + str(i) + ".png",
-            #     cv2.cvtColor(
-            #         numpy.float32(numpy.array(json.loads(job.decode())["frame"])),
-            #         cv2.COLOR_BGR2GRAY,
-            #     ),
-            # )
+            if not job:
+                break
 
             worker = random_scheduler(conf["workers"])
             connections[worker["id"] - 1].send(job)
             i += 1
+
+    # Lock needed maybe
+    for c in connections:
+        c.shutdown(1)
+        # c.close()
 
 
 def random_scheduler(workers):

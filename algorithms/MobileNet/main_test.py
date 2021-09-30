@@ -48,6 +48,7 @@ def getParentDirectory(levels):
 
 grandparentDir = getParentDirectory(2)
 sys.path.append(grandparentDir)
+exit_code = 0
 
 from database import Database
 from faceClustering import *
@@ -154,37 +155,37 @@ def saveFrameThread(fcOb, dbOb, picname, label, permission, frame):
 
 def faceDetectionLogic(lock):
     global frame_heap, frame_number
-    while 1:
-        if frame_heap:
-            lock.acquire()
-            frame = frame_heap.popleft()
-            frame_number += 1
-            lock.release()
+    while not exit_code or frame_heap:
+        # if frame_heap:
+        lock.acquire()
+        frame = frame_heap.popleft()
+        frame_number += 1
+        lock.release()
 
-            if frame is None:
-                continue
+        if frame is None:
+            continue
 
-            # detect faces in the frame and determine if they are wearing a
-            # face mask or not
-            (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
+        # detect faces in the frame and determine if they are wearing a
+        # face mask or not
+        (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
 
-            # loop over the detected face locations and their corresponding
-            # locations
-            for (box, pred) in zip(locs, preds):
-                # unpack the bounding box and predictions
-                (startX, startY, endX, endY) = box
-                (mask, withoutMask) = pred
+        # loop over the detected face locations and their corresponding
+        # locations
+        for (box, pred) in zip(locs, preds):
+            # unpack the bounding box and predictions
+            (startX, startY, endX, endY) = box
+            (mask, withoutMask) = pred
 
-                # determine the class label and color we'll use to draw
-                # the bounding box and text
-                label = "Mask" if mask > withoutMask else "No Mask"
-                # color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
-                expansion = 10
-                only_face_color = frame[
-                    startY - expansion : endY + expansion,
-                    startX - expansion : endX + expansion,
-                ]
-                """if label == "No Mask":
+            # determine the class label and color we'll use to draw
+            # the bounding box and text
+            label = "Mask" if mask > withoutMask else "No Mask"
+            # color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
+            expansion = 10
+            only_face_color = frame[
+                startY - expansion : endY + expansion,
+                startX - expansion : endX + expansion,
+            ]
+            """if label == "No Mask":
                     picname = output_path + r"nmsk\\" + str(i) + ".png"
                     # thread here
                     # GIL - Global Interpreter Lock - One thread at a time
@@ -200,25 +201,28 @@ def faceDetectionLogic(lock):
                 #     "frame": cv2.cvtColor(only_face_color, cv2.COLOR_BGR2GRAY).tolist(),
                 # }"""
 
-                # Color:
-                cv2.imwrite(
-                    grandparentDir + r"\\temp\\" + str(frame_number) + ".png",
-                    only_face_color,
-                )
+            # Color:
+            cv2.imwrite(
+                grandparentDir + r"\\temp\\" + str(frame_number) + ".png",
+                only_face_color,
+            )
 
-                label01 = 1 if label == "Mask" else 0
+            label01 = 1 if label == "Mask" else 0
 
-                data_to_send = json.dumps(
-                    {
-                        "label": label01,
-                        "frame": str(frame_number),
-                    }
-                )
-                data_to_send = "%" + str(len(data_to_send)) + data_to_send
-                socket_conn.send(data_to_send.encode())
+            data_to_send = json.dumps(
+                {
+                    "label": label01,
+                    "frame": str(frame_number),
+                }
+            )
+            data_to_send = "%" + str(len(data_to_send)) + data_to_send
+            socket_conn.send(data_to_send.encode())
+    socket_conn.shutdown(2)
+    socket_conn.close()
 
 
 def getInputStream(lock):
+    global exit_code
     i = 0
     # loop over the frames from the video stream
     while True:
@@ -250,6 +254,7 @@ def getInputStream(lock):
             break
 
     # do a bit of cleanup
+    exit_code = 1
     cv2.destroyAllWindows()
     # cap.stop()
 
