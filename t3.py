@@ -180,7 +180,7 @@ def uploadOnAws(lock):
 
 
 if __name__ == "__main__":
-    confFile = open("conf.json", "r")
+    confFile = open("config\\conf.json", "r")
     conf = json.load(confFile)
     num_conn = len(conf["workers"])
     lock_j = Lock()

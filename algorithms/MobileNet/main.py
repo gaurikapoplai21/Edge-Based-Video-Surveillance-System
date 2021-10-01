@@ -151,17 +151,19 @@ def saveFrameThread(fcOb, dbOb, picname, label, permission, frame):
 
 
 def checkStopSignal():
-    global exit_code
+    global exit_code, stop_conn
     HOST = "127.0.0.1"
-    PORT = 50000
+    PORT = 6969
 
-    serverSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    serverSock.bind((HOST, PORT))
+    stop_conn.bind((HOST, PORT))
 
-    data, _ = serverSock.recvfrom(1024)
-
-    if data:
-        exit_code = 1
+    try:
+        data, _ = stop_conn.recvfrom(1024)
+        stop_conn.close()
+        if data:
+            exit_code = 1
+    except:
+        print("Explicitely Stopped!")
 
 
 if __name__ == "__main__":
@@ -191,9 +193,9 @@ if __name__ == "__main__":
     socket_conn.connect((HOST, PORT))
 
     # Check Stop
+    stop_conn = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     task = Thread(target=checkStopSignal, args=())
     task.start()
-    # task.join()
 
     i = 0
     # loop over the frames from the video stream
@@ -279,6 +281,7 @@ if __name__ == "__main__":
             break
 
     # do a bit of cleanup
+    stop_conn.close()
     socket_conn.shutdown(1)
     cv2.destroyAllWindows()
     # cap.stop()

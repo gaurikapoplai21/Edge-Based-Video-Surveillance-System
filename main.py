@@ -62,14 +62,14 @@ def start():
     # os.system(cmd)
 
     playing = True
-    cmd = {"args": ["run.cmd"], "close_fds": True}
+    cmd = {"args": ["cmdRun.bat"], "close_fds": True}
     process = subprocess.Popen(**cmd)
 
 
 def sendStopSignal():
 
     HOST = "127.0.0.1"
-    PORT = 50000
+    PORT = 6969
     Message = b"Stop"
 
     clientSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

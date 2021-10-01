@@ -68,7 +68,7 @@ def random_scheduler(workers):
 
 
 if __name__ == "__main__":
-    confFile = open("conf.json", "r")
+    confFile = open("config\\conf.json", "r")
     conf = json.load(confFile)
     lock = Lock()
     task1 = Thread(target=recieveJobs, args=(lock,))
