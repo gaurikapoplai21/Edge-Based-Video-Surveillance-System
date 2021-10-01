@@ -1,3 +1,4 @@
+from threading import Thread
 from numpy.lib.function_base import _ARGUMENT_LIST
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
@@ -46,6 +47,7 @@ def getParentDirectory(levels):
 
 grandparentDir = getParentDirectory(2)
 sys.path.append(grandparentDir)
+exit_code = 0
 
 # from database import Database
 # from faceClustering import *
@@ -148,6 +150,20 @@ def saveFrameThread(fcOb, dbOb, picname, label, permission, frame):
             dbOb.saveImageDb(frame, 1)
 
 
+def checkStopSignal():
+    global exit_code
+    HOST = "127.0.0.1"
+    PORT = 50000
+
+    serverSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    serverSock.bind((HOST, PORT))
+
+    data, _ = serverSock.recvfrom(1024)
+
+    if data:
+        exit_code = 1
+
+
 if __name__ == "__main__":
     dir_ = getParentDirectory(0)
     HOST = "127.0.0.1"  # The server's hostname or IP address
@@ -173,6 +189,11 @@ if __name__ == "__main__":
     # dbOb = Database()
     socket_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     socket_conn.connect((HOST, PORT))
+
+    # Check Stop
+    task = Thread(target=checkStopSignal, args=())
+    task.start()
+    # task.join()
 
     i = 0
     # loop over the frames from the video stream
@@ -252,6 +273,9 @@ if __name__ == "__main__":
 
         # if the `q` key was pressed, break from the loop
         if key == ord("q"):
+            break
+
+        if exit_code:
             break
 
     # do a bit of cleanup

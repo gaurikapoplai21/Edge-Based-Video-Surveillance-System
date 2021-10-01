@@ -4,6 +4,7 @@ import os
 import base64
 import cv2
 import subprocess
+import socket
 
 from database import *
 
@@ -50,25 +51,38 @@ def downloadAlgo():
 
 
 algoProcess = None
-process = None
+playing = False
 
 
 def start():
-    global process
+    global playing
 
     # Normal Execution
     # cmd = "run.cmd"
     # os.system(cmd)
 
+    playing = True
     cmd = {"args": ["run.cmd"], "close_fds": True}
     process = subprocess.Popen(**cmd)
+
+
+def sendStopSignal():
+
+    HOST = "127.0.0.1"
+    PORT = 50000
+    Message = b"Stop"
+
+    clientSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    clientSock.sendto(Message, (HOST, PORT))
 
 
 def stop():
     # if process is None:
     #     return
     # process.terminate()
-
+    if not playing:
+        return
+    sendStopSignal()
     pass
 
 
