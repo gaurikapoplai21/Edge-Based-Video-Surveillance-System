@@ -7,5 +7,5 @@ timeout 3
 start cmd.exe @cmd /k "python t2.py 5004 5005&exit"
 timeout 5
 start cmd.exe @cmd /k "python t1.py 5001&exit"
-start cmd.exe @cmd /k "cd algorithms\MobileNet&python main.py"
+start cmd.exe @cmd /k "python algorithms\MobileNet\mainNoDSync.py"
 exit

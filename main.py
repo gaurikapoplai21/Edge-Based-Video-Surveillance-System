@@ -5,6 +5,8 @@ import base64
 import cv2
 import subprocess
 import socket
+import time
+from threading import Thread
 
 from database import *
 
@@ -56,7 +58,8 @@ playing = False
 
 def start():
     global playing
-
+    if playing:
+        return
     # Normal Execution
     # cmd = "run.cmd"
     # os.system(cmd)
@@ -77,13 +80,24 @@ def sendStopSignal():
 
 
 def stop():
-    # if process is None:
-    #     return
-    # process.terminate()
+    global playing
     if not playing:
         return
     sendStopSignal()
-    pass
+    playing = False
+
+
+def timedStopSignal(duration):
+    if not playing:
+        return
+    while not expliciteStop and duration:
+        duration -= 1
+        time.sleep(1)
+    if not playing:
+        return
+    print("Time up!!!")
+    if not expliciteStop:
+        stop()
 
 
 def getAllAlgo():
@@ -126,6 +140,7 @@ def oneTime(ob):
 
 
 app = Flask(__name__)
+expliciteStop = 0
 
 
 @app.route("/", methods=["POST", "GET"])
@@ -142,8 +157,18 @@ def index():
     else:
         if request.form.get("start"):
             start()
+            duration = request.form.get("time")
+            print("Duration :", duration)
+            if duration:
+                hms = duration.split(":")
+                extraTime = 50
+                s = int(hms[0]) * 3600 + int(hms[1]) * 60 + int(hms[2]) * 1 + extraTime
+                task = Thread(target=timedStopSignal, args=(s,))
+                task.start()
             return redirect(url_for("index"))
         elif request.form.get("stop"):
+            global expliciteStop
+            expliciteStop = 1
             stop()
             return redirect(url_for("index"))
         else:
